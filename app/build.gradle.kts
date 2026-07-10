@@ -29,8 +29,8 @@ android {
         applicationId = "com.zakratv.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 7
-        versionName = "1.5.0"
+        versionCode = 8
+        versionName = "1.5.1"
 
         buildConfigField("String", "TMDB_API_KEY", "\"${secret("TMDB_API_KEY")}\"")
         buildConfigField("String", "REAL_DEBRID_TOKEN", "\"${secret("REAL_DEBRID_TOKEN")}\"")
@@ -109,14 +109,12 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     implementation("androidx.navigation:navigation-compose:2.8.4")
 
-    // Media3 ExoPlayer — optimized streaming
+    // Media3 ExoPlayer — lean: Real-Debrid links are progressive files (mkv/mp4/avi),
+    // so HLS/DASH/session modules are not needed. Dropping them shrinks the APK.
     val media3 = "1.5.0"
     implementation("androidx.media3:media3-exoplayer:$media3")
-    implementation("androidx.media3:media3-exoplayer-hls:$media3")
-    implementation("androidx.media3:media3-exoplayer-dash:$media3")
     implementation("androidx.media3:media3-ui:$media3")
     implementation("androidx.media3:media3-datasource-okhttp:$media3")
-    implementation("androidx.media3:media3-session:$media3")
 
     // Network (lightweight)
     implementation("com.squareup.okhttp3:okhttp:4.12.0")

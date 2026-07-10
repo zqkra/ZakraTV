@@ -105,7 +105,9 @@ class PlayerActivity : ComponentActivity() {
             }
             initPlayer(url, title)
         } catch (t: Throwable) {
-            runCatching { showError("No se pudo abrir el reproductor. Vuelve atrás e inténtalo con otro enlace.") }
+            runCatching {
+                showError("No se pudo abrir el reproductor.\n(${t.javaClass.simpleName}: ${t.message})\nVuelve atrás e inténtalo con otro enlace.")
+            }
         }
     }
 
@@ -232,7 +234,7 @@ class PlayerActivity : ComponentActivity() {
                 })
             }
       } catch (t: Throwable) {
-          showError("No se pudo iniciar el vídeo. Vuelve atrás y prueba otro enlace (⚡ RD).")
+          showError("No se pudo iniciar el vídeo.\n(${t.javaClass.simpleName}: ${t.message})\nVuelve atrás y prueba otro enlace (⚡ RD).")
       }
     }
 

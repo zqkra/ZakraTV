@@ -26,15 +26,18 @@ object UpdateInstaller {
                 .header("User-Agent", "ZakraTV-Updater")
                 .get()
                 .build()
-            HttpClientFactory.client.newCall(request).execute().use { response ->
+            // mediaClient has NO callTimeout: a 4-5 MB APK on slow Fire Stick Wi-Fi can take
+            // longer than 45s, and a call timeout would leave the APK half-written → won't install.
+            HttpClientFactory.mediaClient.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
                     return "Descarga fallida HTTP ${response.code}"
                 }
                 val body = response.body ?: return "Respuesta vacía"
                 out.outputStream().use { body.byteStream().copyTo(it) }
             }
-            if (!out.exists() || out.length() < 10_000) {
-                return "APK incompleto"
+            val expected = out.length()
+            if (!out.exists() || expected < 1_000_000) {
+                return "APK incompleto (${expected} bytes). Reintenta con mejor conexión."
             }
             openInstaller(context, out)
             null
