@@ -25,6 +25,18 @@ object HttpClientFactory {
     }
 
     /**
+     * Quick 1-byte probes to detect torrents already removed from hosts.
+     * Short timeouts on purpose: a slow probe must never block the link list for long.
+     */
+    val probeClient: OkHttpClient by lazy {
+        client.newBuilder()
+            .connectTimeout(4, TimeUnit.SECONDS)
+            .readTimeout(5, TimeUnit.SECONDS)
+            .callTimeout(8, TimeUnit.SECONDS)
+            .build()
+    }
+
+    /**
      * Client for video playback. NO callTimeout: a progressive stream is one long HTTP call
      * that must stay open for the whole movie — a 45s call timeout would kill playback mid-film.
      */

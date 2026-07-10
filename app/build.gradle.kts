@@ -29,8 +29,8 @@ android {
         applicationId = "com.zakratv.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 12
-        versionName = "1.6.0"
+        versionCode = 13
+        versionName = "1.6.1"
 
         buildConfigField("String", "TMDB_API_KEY", "\"${secret("TMDB_API_KEY")}\"")
         buildConfigField("String", "REAL_DEBRID_TOKEN", "\"${secret("REAL_DEBRID_TOKEN")}\"")

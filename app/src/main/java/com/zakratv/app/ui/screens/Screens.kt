@@ -728,18 +728,18 @@ private fun DetailScreen(
         scope.launch {
             loadingStreams = true
             showPicker = true
-            status = "Buscando enlaces (Latino y Real-Debrid primero)…"
+            status = "Buscando y verificando enlaces (Latino primero)…"
             streams = repo.findStreams(detailed, season, episode)
             loadingStreams = false
             status = if (streams.isEmpty()) {
-                "No hay enlaces válidos (hosts suspendidos ocultos)."
+                "No hay enlaces disponibles (los eliminados se ocultan)."
             } else {
                 val lat = streams.count {
                     com.zakratv.app.data.ranking.LanguagePreference.streamLanguageLabel(it)
                         .contains("Latino")
                 }
                 val cached = streams.count { it.isCached || it.isPremium }
-                "${streams.size} enlaces · $cached RD · $lat Latino arriba"
+                "${streams.size} enlaces verificados · $cached RD · $lat Latino arriba"
             }
         }
     }
