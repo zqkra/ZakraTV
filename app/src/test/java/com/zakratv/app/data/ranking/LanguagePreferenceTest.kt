@@ -90,6 +90,36 @@ class LanguagePreferenceTest {
     }
 
     @Test
+    fun realWorldTorrentioTitlesClassifyCorrectly() {
+        fun kind(title: String) =
+            LanguagePreference.classifyStreamLanguage(StreamLink(name = title, url = "https://x/y"))
+
+        // Real Torrentio/RD release names captured live for tt0468569.
+        assertEquals(
+            LanguagePreference.StreamLangKind.LATINO,
+            kind("Batman.The.Dark.Knight.2008.1080p.REMUX.ENG.And.ESP.LATINO.DTS-HD.Master.DDP5.1.MKV"),
+        )
+        assertEquals(
+            LanguagePreference.StreamLangKind.LATINO,
+            kind("The.dark.knight.2008.1080P-Dual-Lat 👤 13 💾 2.34 GB ⚙️ Cinecalidad Dual Audio"),
+        )
+        assertEquals(
+            LanguagePreference.StreamLangKind.SPAIN,
+            kind("El caballero oscuro [4K UHDremux][2160p][HDR10][AC3 5.1 Castellano]"),
+        )
+        // Explicit English marker → ENGLISH.
+        assertEquals(
+            LanguagePreference.StreamLangKind.ENGLISH,
+            kind("The Dark Knight 2008 1080p BluRay English DTS x264-GROUP"),
+        )
+        // No language marker at all → OTHER (we must NOT guess Spanish; it sinks below Latino).
+        assertEquals(
+            LanguagePreference.StreamLangKind.OTHER,
+            kind("The.Dark.Knight.2008.UHD.2160p.REMUX.Hybrid.HDR10.DV.DTS-HD.TrueHD.5.1.H265-KC"),
+        )
+    }
+
+    @Test
     fun latinoOutranksEverythingElse() {
         val latino = StreamLink(name = "Dual LAT 🇲🇽", url = "https://x/a", language = "es-LAT")
         val english = StreamLink(name = "English", url = "https://x/b", language = "en")
