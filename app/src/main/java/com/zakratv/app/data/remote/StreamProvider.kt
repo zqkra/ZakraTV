@@ -6,10 +6,6 @@ import com.zakratv.app.data.model.StreamAddonResponse
 import com.zakratv.app.data.model.StreamLink
 import com.zakratv.app.data.ranking.LanguagePreference
 import com.zakratv.app.data.ranking.StreamRanker
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.json.Json
 import okhttp3.Request
 import java.util.Locale
@@ -26,7 +22,7 @@ class StreamProvider(
         coerceInputValues = true
     }
 
-    suspend fun findStreams(
+    fun findStreams(
         imdbId: String,
         type: MediaType,
         season: Int? = null,
@@ -58,40 +54,7 @@ class StreamProvider(
                 .take(6)
             links += resolveTopMagnets(magnets)
         }
-        val ranked = StreamRanker.sort(links.distinctBy { it.url.lowercase(Locale.US) })
-        return dropRemovedLinks(ranked)
-    }
-
-    /**
-     * Probes the top links in parallel (1-byte ranged GET) and drops ONLY those whose
-     * torrent was confirmed removed (404/410/451). Network errors, timeouts or odd
-     * codes keep the link — working links are never discarded by accident.
-     */
-    private suspend fun dropRemovedLinks(links: List<StreamLink>): List<StreamLink> = coroutineScope {
-        if (links.isEmpty()) return@coroutineScope links
-        val head = links.take(HEALTH_CHECK_TOP)
-        val deadFlags = head.map { link ->
-            async(Dispatchers.IO) { isConfirmedRemoved(link) }
-        }.awaitAll()
-        val dead = head.filterIndexed { i, _ -> deadFlags[i] }.toHashSet()
-        LinkHealth.dropConfirmedDead(links, HEALTH_CHECK_TOP) { it in dead }
-    }
-
-    private fun isConfirmedRemoved(link: StreamLink): Boolean {
-        if (!StreamRanker.isHttpUrl(link.url)) return false // magnets can't be probed here
-        return try {
-            val request = Request.Builder()
-                .url(link.url)
-                .header("Range", "bytes=0-0")
-                .header("User-Agent", "ZakraTV/1.6")
-                .get()
-                .build()
-            HttpClientFactory.probeClient.newCall(request).execute().use { resp ->
-                LinkHealth.isRemovedCode(resp.code)
-            }
-        } catch (_: Exception) {
-            false // doubt → keep the link
-        }
+        return StreamRanker.sort(links.distinctBy { it.url.lowercase(Locale.US) })
     }
 
     /**
@@ -215,9 +178,6 @@ class StreamProvider(
     }
 
     companion object {
-        /** How many top-ranked links get health-probed (what the UI actually shows). */
-        private const val HEALTH_CHECK_TOP = 15
-
         /**
          * Torrentio config prefix shared by the RD and public URLs.
          * `providers` keeps mainstream + Latino/Spanish sources and excludes Russian/anime

@@ -1,6 +1,11 @@
 package com.zakratv.app.ui.screens
 
+import android.content.Context
 import android.content.Intent
+import android.text.InputType
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
+import android.widget.EditText
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -26,8 +31,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -42,9 +45,8 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.widget.doAfterTextChanged
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -492,10 +494,10 @@ private fun MyListScreen(
 }
 
 /**
- * Búsqueda clara para el mando:
- * - El cursor cae en el campo (sin abrir el teclado a la fuerza).
- * - Al buscar, el foco pasa SOLO al primer resultado (lo seleccionado = lo que ves).
- * - Al volver de un título, la búsqueda y sus resultados siguen aquí (estado en la raíz).
+ * Búsqueda con campo NATIVO (EditText): en Fire TV / Android TV el teclado del
+ * sistema se abre de verdad al enfocar/pulsar el campo — el TextField de Compose
+ * no lo hacía con el mando. Al buscar, el foco pasa al primer resultado; y al
+ * volver de un título, la búsqueda y sus resultados siguen aquí.
  */
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -507,18 +509,22 @@ private fun SearchScreen(
     var loading by remember { mutableStateOf(false) }
     var focusResults by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    val fieldFocus = remember { FocusRequester() }
     val firstResultFocus = remember { FocusRequester() }
-    val keyboard = LocalSoftwareKeyboardController.current
-    val focusManager = LocalFocusManager.current
+    val editRef = remember { mutableStateOf<EditText?>(null) }
 
-    LaunchedEffect(Unit) {
-        // Solo lleva el cursor al campo si aún no hay resultados
-        // (al volver de una película no roba el foco).
-        if (state.items.isEmpty()) {
-            delay(250)
-            runCatching { fieldFocus.requestFocus() }
-        }
+    fun imm(): InputMethodManager? = editRef.value?.context
+        ?.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+
+    fun openKeyboard() {
+        val et = editRef.value ?: return
+        et.requestFocus()
+        imm()?.showSoftInput(et, InputMethodManager.SHOW_IMPLICIT)
+    }
+
+    fun hideKeyboard() {
+        val et = editRef.value ?: return
+        imm()?.hideSoftInputFromWindow(et.windowToken, 0)
+        et.clearFocus()
     }
 
     fun runSearch() {
@@ -530,8 +536,7 @@ private fun SearchScreen(
         scope.launch {
             loading = true
             state.status = "Buscando «$q»…"
-            keyboard?.hide()
-            focusManager.clearFocus()
+            hideKeyboard()
             state.items = repo.search(q)
             loading = false
             state.status = if (state.items.isEmpty()) {
@@ -540,6 +545,14 @@ private fun SearchScreen(
                 "${state.items.size} resultados · elige con el mando"
             }
             if (state.items.isNotEmpty()) focusResults = true
+        }
+    }
+
+    // Al entrar sin resultados previos: cursor al campo y teclado del TV abierto.
+    LaunchedEffect(Unit) {
+        if (state.items.isEmpty()) {
+            delay(400)
+            runCatching { openKeyboard() }
         }
     }
 
@@ -571,24 +584,40 @@ private fun SearchScreen(
                     .padding(horizontal = 18.dp),
                 contentAlignment = Alignment.CenterStart,
             ) {
-                if (state.query.isEmpty()) {
-                    Text(
-                        "Título de película o serie…",
-                        style = ZakraType.body,
-                        color = ZakraMuted,
-                    )
-                }
-                BasicTextField(
-                    value = state.query,
-                    onValueChange = { state.query = it },
-                    textStyle = ZakraType.body.copy(color = ZakraText),
-                    cursorBrush = SolidColor(ZakraAccent),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    keyboardActions = KeyboardActions(onSearch = { runSearch() }),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .focusRequester(fieldFocus),
+                AndroidView(
+                    factory = { ctx ->
+                        EditText(ctx).apply {
+                            hint = "Título de película o serie…"
+                            setHintTextColor(0xFFB3B3C0.toInt())
+                            setTextColor(0xFFF5F5F7.toInt())
+                            textSize = 20f
+                            isSingleLine = true
+                            inputType = InputType.TYPE_CLASS_TEXT
+                            imeOptions = EditorInfo.IME_ACTION_SEARCH
+                            setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                            setText(state.query)
+                            setSelection(state.query.length)
+                            doAfterTextChanged { state.query = it?.toString().orEmpty() }
+                            setOnEditorActionListener { _, actionId, _ ->
+                                if (actionId == EditorInfo.IME_ACTION_SEARCH ||
+                                    actionId == EditorInfo.IME_ACTION_DONE
+                                ) {
+                                    runSearch()
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                            editRef.value = this
+                        }
+                    },
+                    update = { et ->
+                        if (et.text.toString() != state.query) {
+                            et.setText(state.query)
+                            et.setSelection(state.query.length)
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
             BigButton(
@@ -598,10 +627,7 @@ private fun SearchScreen(
             )
             BigButton(
                 label = "Teclado",
-                onClick = {
-                    fieldFocus.requestFocus()
-                    keyboard?.show()
-                },
+                onClick = { openKeyboard() },
             )
         }
         Spacer(Modifier.height(8.dp))
@@ -728,18 +754,18 @@ private fun DetailScreen(
         scope.launch {
             loadingStreams = true
             showPicker = true
-            status = "Buscando y verificando enlaces (Latino primero)…"
+            status = "Buscando enlaces (Latino primero)…"
             streams = repo.findStreams(detailed, season, episode)
             loadingStreams = false
             status = if (streams.isEmpty()) {
-                "No hay enlaces disponibles (los eliminados se ocultan)."
+                "No hay enlaces disponibles ahora. Prueba otro título."
             } else {
                 val lat = streams.count {
                     com.zakratv.app.data.ranking.LanguagePreference.streamLanguageLabel(it)
                         .contains("Latino")
                 }
                 val cached = streams.count { it.isCached || it.isPremium }
-                "${streams.size} enlaces verificados · $cached RD · $lat Latino arriba"
+                "${streams.size} enlaces · $cached RD · $lat Latino arriba"
             }
         }
     }
