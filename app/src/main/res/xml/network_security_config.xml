@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+    <!-- Algunos hosts de streaming / CDNs de RD pueden usar cleartext en edge cases -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">real-debrid.com</domain>
+        <domain includeSubdomains="true">download.real-debrid.com</domain>
+    </domain-config>
+</network-security-config>

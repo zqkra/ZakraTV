@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="zakra_bg">#FF0B0B0F</color>
+    <color name="zakra_surface">#FF14141C</color>
+    <color name="zakra_accent">#FFE50914</color>
+    <color name="zakra_text">#FFFFFFFF</color>
+    <color name="zakra_muted">#FFB3B3B3</color>
+    <color name="ic_launcher_background">#FF0B0B0F</color>
+</resources>

@@ -1,0 +1,17 @@
+## Copia este archivo como local.properties y rellena los valores.
+## NO subas local.properties a Git (contiene rutas y secretos locales).
+
+sdk.dir=C\:\\Users\\TU_USUARIO\\AppData\\Local\\Android\\Sdk
+
+# Clave API de TMDb (https://www.themoviedb.org/settings/api) — gratis
+TMDB_API_KEY=tu_clave_tmdb_aqui
+
+# Token API de Real-Debrid (https://real-debrid.com/apitoken)
+# Con esto la app arranca YA conectada: no hace falta autorizar en el mando.
+REAL_DEBRID_TOKEN=tu_token_real_debrid_aqui
+
+# Firma release (opcional; se usa al generar APK firmado)
+# RELEASE_STORE_FILE=../keystore/zakratv-release.jks
+# RELEASE_STORE_PASSWORD=tu_password
+# RELEASE_KEY_ALIAS=zakratv
+# RELEASE_KEY_PASSWORD=tu_password

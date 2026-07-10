@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Zakra TV</string>
+    <string name="nav_home">Inicio</string>
+    <string name="nav_movies">Películas</string>
+    <string name="nav_series">Series</string>
+    <string name="nav_trending">Trending</string>
+    <string name="nav_mylist">Mi Lista</string>
+    <string name="nav_search">Buscar</string>
+    <string name="nav_settings">Ajustes</string>
+    <string name="play">Reproducir</string>
+    <string name="add_to_list">Añadir a Mi Lista</string>
+    <string name="remove_from_list">Quitar de Mi Lista</string>
+    <string name="real_debrid">Real-Debrid</string>
+    <string name="loading">Cargando…</string>
+    <string name="error_generic">Algo salió mal. Inténtalo de nuevo.</string>
+    <string name="no_streams">No se encontraron enlaces. Conecta Real-Debrid o prueba otro título.</string>
+    <string name="player_error">Error al reproducir. Prueba otro enlace.</string>
+</resources>

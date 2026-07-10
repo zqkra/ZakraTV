@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.ZakraTV" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowBackground">#FF0B0B0F</item>
+        <item name="android:colorBackground">#FF0B0B0F</item>
+        <item name="android:statusBarColor">#FF0B0B0F</item>
+        <item name="android:navigationBarColor">#FF0B0B0F</item>
+        <item name="android:windowFullscreen">true</item>
+    </style>
+    <style name="Theme.ZakraTV.Player" parent="Theme.ZakraTV">
+        <item name="android:windowBackground">#FF000000</item>
+    </style>
+</resources>
