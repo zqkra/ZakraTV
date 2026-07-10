@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -46,6 +47,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -141,6 +143,74 @@ fun MediaRow(
             }
         }
         Spacer(Modifier.height(12.dp))
+    }
+}
+
+/**
+ * Episode tile: still image, "E#" chip and the episode TITLE (up to 2 lines).
+ * Makes seasons readable like a real streaming app instead of bare E1/E2 buttons.
+ */
+@Composable
+fun EpisodeCard(
+    number: Int,
+    title: String,
+    stillUrl: String?,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.width(216.dp),
+        shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(12.dp)),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.05f),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = ZakraSurface,
+            focusedContainerColor = ZakraSurface2,
+        ),
+        border = ClickableSurfaceDefaults.border(
+            focusedBorder = Border(
+                border = BorderStroke(2.dp, ZakraFocus),
+                shape = RoundedCornerShape(12.dp),
+            )
+        ),
+    ) {
+        Column {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(16f / 9f)
+                    .background(ZakraSurface2),
+            ) {
+                if (stillUrl != null) {
+                    AsyncImage(
+                        model = stillUrl,
+                        contentDescription = title,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+                Box(
+                    Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(6.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color(0xCC000000))
+                        .padding(horizontal = 8.dp, vertical = 2.dp),
+                ) {
+                    Text("E$number", style = ZakraType.caption, color = ZakraText)
+                }
+            }
+            Text(
+                text = title.ifBlank { "Episodio $number" },
+                style = ZakraType.caption,
+                color = ZakraText,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .padding(horizontal = 10.dp, vertical = 8.dp)
+                    .heightIn(min = 40.dp),
+            )
+        }
     }
 }
 
@@ -299,6 +369,35 @@ fun LoadingBox(
     }
 }
 
+/**
+ * The app logo mark — same design as the launcher icon (red gradient plate + bold white Z),
+ * so the splash and the side menu match the real brand instead of a flat YT-like square.
+ */
+@Composable
+fun ZakraLogoMark(size: Int, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .size(size.dp)
+            .clip(RoundedCornerShape((size * 0.22f).dp))
+            .background(
+                Brush.linearGradient(
+                    listOf(Color(0xFFF11722), Color(0xFFE50914), Color(0xFF7A0510)),
+                ),
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = "Z",
+            style = ZakraType.title.copy(
+                fontSize = (size * 0.52f).sp,
+                fontWeight = FontWeight.Black,
+            ),
+            color = Color.White,
+        )
+    }
+}
+
+/** Splash: the real app logo with a spinning ring around it + wordmark. */
 @Composable
 fun SplashLoading(message: String = "Preparando Zakra TV…") {
     Box(
@@ -308,23 +407,18 @@ fun SplashLoading(message: String = "Preparando Zakra TV…") {
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(
-                Modifier
-                    .size(96.dp)
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(ZakraAccent),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    "Z",
-                    style = ZakraType.title.copy(fontSize = 48.sp),
-                    color = Color.White,
-                )
+            Box(contentAlignment = Alignment.Center) {
+                ZakraSpinner(size = 136)
+                ZakraLogoMark(size = 92)
             }
-            Spacer(Modifier.height(24.dp))
-            ZakraSpinner(size = 48)
-            Spacer(Modifier.height(16.dp))
-            Text(message, style = ZakraType.body, color = ZakraMuted, textAlign = TextAlign.Center)
+            Spacer(Modifier.height(28.dp))
+            Text(
+                "ZAKRA TV",
+                style = ZakraType.title.copy(letterSpacing = 6.sp),
+                color = ZakraText,
+            )
+            Spacer(Modifier.height(10.dp))
+            Text(message, style = ZakraType.bodyMuted, color = ZakraMuted, textAlign = TextAlign.Center)
         }
     }
 }

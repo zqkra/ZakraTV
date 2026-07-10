@@ -1,6 +1,7 @@
 package com.zakratv.app.ui.screens
 
 import android.content.Intent
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,6 +21,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -40,8 +42,10 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.ExperimentalTvMaterial3Api
@@ -62,6 +66,7 @@ import com.zakratv.app.data.update.AvailableUpdate
 import com.zakratv.app.data.update.UpdateInstaller
 import com.zakratv.app.player.PlayerActivity
 import com.zakratv.app.ui.components.BigButton
+import com.zakratv.app.ui.components.EpisodeCard
 import com.zakratv.app.ui.components.ErrorBox
 import com.zakratv.app.ui.components.FilterChip
 import com.zakratv.app.ui.components.HeroBackdrop
@@ -71,6 +76,7 @@ import com.zakratv.app.ui.components.PosterCard
 import com.zakratv.app.ui.components.SideNavItem
 import com.zakratv.app.ui.components.SplashLoading
 import com.zakratv.app.ui.components.StepLabel
+import com.zakratv.app.ui.components.ZakraLogoMark
 import com.zakratv.app.ui.components.ZakraSpinner
 import com.zakratv.app.ui.navigation.AppDestination
 import com.zakratv.app.ui.theme.ZakraAccent
@@ -87,6 +93,13 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+/** Search state hoisted to the root so results/query survive opening a title and coming back. */
+private class SearchUiState {
+    var query by mutableStateOf("")
+    var items by mutableStateOf<List<MediaItem>>(emptyList())
+    var status by mutableStateOf("Escribe el título y pulsa Buscar")
+}
+
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 fun ZakraRoot() {
@@ -99,6 +112,11 @@ fun ZakraRoot() {
     val repo = ZakraApp.instance.repository
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    // Search results survive navigating into a title and back.
+    val searchState = remember { SearchUiState() }
+
+    // Remote BACK inside a title returns to the previous screen instead of closing the app.
+    BackHandler(enabled = selected != null) { selected = null }
 
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
@@ -220,7 +238,7 @@ fun ZakraRoot() {
                             showFilters = false,
                         )
                         AppDestination.MyList -> MyListScreen(repo) { selected = it }
-                        AppDestination.Search -> SearchScreen(repo) { selected = it }
+                        AppDestination.Search -> SearchScreen(repo, searchState) { selected = it }
                         AppDestination.Settings -> SettingsScreen()
                     }
                 }
@@ -236,12 +254,18 @@ private fun SideBar(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(
-            text = "Zakra TV",
-            style = ZakraType.title,
-            color = ZakraAccent,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+        ) {
+            ZakraLogoMark(size = 34)
+            Spacer(Modifier.width(10.dp))
+            Text(
+                text = "Zakra TV",
+                style = ZakraType.section,
+                color = ZakraText,
+            )
+        }
         Spacer(Modifier.height(8.dp))
         AppDestination.entries.forEach { d ->
             SideNavItem(
@@ -468,48 +492,63 @@ private fun MyListScreen(
 }
 
 /**
- * Search with system TV IME (Fire Stick keyboard), not a custom letter grid.
- * Focus the field → OS keyboard opens.
+ * Búsqueda clara para el mando:
+ * - El cursor cae en el campo (sin abrir el teclado a la fuerza).
+ * - Al buscar, el foco pasa SOLO al primer resultado (lo seleccionado = lo que ves).
+ * - Al volver de un título, la búsqueda y sus resultados siguen aquí (estado en la raíz).
  */
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun SearchScreen(
     repo: CatalogRepository,
+    state: SearchUiState,
     onClick: (MediaItem) -> Unit,
 ) {
-    var query by remember { mutableStateOf("") }
-    var items by remember { mutableStateOf<List<MediaItem>>(emptyList()) }
     var loading by remember { mutableStateOf(false) }
-    var status by remember { mutableStateOf("Escribe el título con el teclado del televisor") }
+    var focusResults by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    val focusRequester = remember { FocusRequester() }
+    val fieldFocus = remember { FocusRequester() }
+    val firstResultFocus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
 
     LaunchedEffect(Unit) {
-        delay(300)
-        runCatching {
-            focusRequester.requestFocus()
-            keyboard?.show()
+        // Solo lleva el cursor al campo si aún no hay resultados
+        // (al volver de una película no roba el foco).
+        if (state.items.isEmpty()) {
+            delay(250)
+            runCatching { fieldFocus.requestFocus() }
         }
     }
 
     fun runSearch() {
-        val q = query.trim()
+        val q = state.query.trim()
         if (q.length < 2) {
-            status = "Escribe al menos 2 letras"
+            state.status = "Escribe al menos 2 letras"
             return
         }
         scope.launch {
             loading = true
-            status = "Buscando «$q»…"
+            state.status = "Buscando «$q»…"
             keyboard?.hide()
-            items = repo.search(q)
+            focusManager.clearFocus()
+            state.items = repo.search(q)
             loading = false
-            status = if (items.isEmpty()) {
-                "Sin resultados para «$q»"
+            state.status = if (state.items.isEmpty()) {
+                "Sin resultados para «$q». Revisa la ortografía."
             } else {
-                "${items.size} resultados (películas y series)"
+                "${state.items.size} resultados · elige con el mando"
             }
+            if (state.items.isNotEmpty()) focusResults = true
+        }
+    }
+
+    // Tras una búsqueda con resultados, mueve el cursor al primer resultado.
+    LaunchedEffect(focusResults) {
+        if (focusResults) {
+            delay(180)
+            runCatching { firstResultFocus.requestFocus() }
+            focusResults = false
         }
     }
 
@@ -532,7 +571,7 @@ private fun SearchScreen(
                     .padding(horizontal = 18.dp),
                 contentAlignment = Alignment.CenterStart,
             ) {
-                if (query.isEmpty()) {
+                if (state.query.isEmpty()) {
                     Text(
                         "Título de película o serie…",
                         style = ZakraType.body,
@@ -540,8 +579,8 @@ private fun SearchScreen(
                     )
                 }
                 BasicTextField(
-                    value = query,
-                    onValueChange = { query = it },
+                    value = state.query,
+                    onValueChange = { state.query = it },
                     textStyle = ZakraType.body.copy(color = ZakraText),
                     cursorBrush = SolidColor(ZakraAccent),
                     singleLine = true,
@@ -549,7 +588,7 @@ private fun SearchScreen(
                     keyboardActions = KeyboardActions(onSearch = { runSearch() }),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .focusRequester(focusRequester),
+                        .focusRequester(fieldFocus),
                 )
             }
             BigButton(
@@ -560,13 +599,13 @@ private fun SearchScreen(
             BigButton(
                 label = "Teclado",
                 onClick = {
-                    focusRequester.requestFocus()
+                    fieldFocus.requestFocus()
                     keyboard?.show()
                 },
             )
         }
         Spacer(Modifier.height(8.dp))
-        Text(status, style = ZakraType.caption, color = ZakraMuted, maxLines = 1)
+        Text(state.status, style = ZakraType.caption, color = ZakraMuted, maxLines = 1)
         Spacer(Modifier.height(12.dp))
         when {
             loading -> LoadingBox(
@@ -575,16 +614,17 @@ private fun SearchScreen(
                     .fillMaxWidth(),
                 message = "Buscando…",
             )
-            items.isEmpty() -> Box(
+            state.items.isEmpty() -> Box(
                 Modifier
                     .weight(1f)
                     .fillMaxWidth(),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    "Los resultados aparecen aquí",
+                    "Escribe un título y pulsa Buscar.\nLos resultados aparecen aquí.",
                     style = ZakraType.bodyMuted,
                     color = ZakraMuted,
+                    textAlign = TextAlign.Center,
                 )
             }
             else -> LazyVerticalGrid(
@@ -596,8 +636,16 @@ private fun SearchScreen(
                     .weight(1f)
                     .fillMaxWidth(),
             ) {
-                items(items, key = { "${it.mediaType}-${it.id}" }) { item ->
-                    PosterCard(item = item, onClick = { onClick(item) }, width = 140)
+                itemsIndexed(
+                    state.items,
+                    key = { _, it -> "${it.mediaType}-${it.id}" },
+                ) { i, item ->
+                    PosterCard(
+                        item = item,
+                        onClick = { onClick(item) },
+                        width = 140,
+                        modifier = if (i == 0) Modifier.focusRequester(firstResultFocus) else Modifier,
+                    )
                 }
             }
         }
@@ -788,23 +836,21 @@ private fun DetailScreen(
                     }
                 }
                 item {
-                    Text("Episodio (pulsa para buscar enlaces)", style = ZakraType.bodyMuted, color = ZakraMuted)
-                    Spacer(Modifier.height(6.dp))
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        "Episodios · Temporada $seasonNum (pulsa uno para ver los enlaces)",
+                        style = ZakraType.bodyMuted,
+                        color = ZakraMuted,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         items(episodes, key = { it.id }) { ep ->
-                            BigButton(
-                                label = "E${ep.episodeNumber}",
+                            EpisodeCard(
+                                number = ep.episodeNumber,
+                                title = ep.name,
+                                stillUrl = ep.stillUrl(),
                                 onClick = { loadStreams(seasonNum, ep.episodeNumber) },
                             )
                         }
-                    }
-                    if (episodes.isNotEmpty()) {
-                        Spacer(Modifier.height(6.dp))
-                        Text(
-                            episodes.firstOrNull { true }?.let { "" }.orEmpty(),
-                            style = ZakraType.caption,
-                            color = ZakraMuted,
-                        )
                     }
                 }
             }

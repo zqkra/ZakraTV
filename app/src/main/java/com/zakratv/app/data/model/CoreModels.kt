@@ -42,7 +42,10 @@ data class Episode(
     val overview: String = "",
     val stillPath: String? = null,
     val airDate: String? = null,
-)
+) {
+    fun stillUrl(size: String = "w300"): String? =
+        stillPath?.let { "https://image.tmdb.org/t/p/$size$it" }
+}
 
 /**
  * Stream candidate for playback. Ranking prefers Real-Debrid cached/premium direct HTTPS.
