@@ -7,16 +7,19 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.ExperimentalTvMaterial3Api
@@ -29,50 +32,60 @@ import com.zakratv.app.ui.theme.ZakraText
 import com.zakratv.app.ui.theme.ZakraType
 
 /**
- * On-screen keyboard for Android TV / Fire Stick (DPAD). No system keyboard required.
+ * Our own on-screen keyboard for Android TV / Fire Stick — the D-PAD-optimized
+ * alphabetical grid used by real TV apps (Netflix/Prime style). No system IME at all,
+ * so it can never fail to open. Keys fill the column width evenly (weight-based).
  */
+private val KEY_ROWS = listOf(
+    "ABCDEFG",
+    "HIJKLMN",
+    "ÑOPQRST",
+    "UVWXYZ0",
+    "1234567",
+    "89.:-'&",
+)
+
 @Composable
-fun TvOnScreenKeyboard(
+fun TvKeyboard(
     onChar: (Char) -> Unit,
+    onSpace: () -> Unit,
     onBackspace: () -> Unit,
     onClear: () -> Unit,
-    onSpace: () -> Unit,
     onSearch: () -> Unit,
     modifier: Modifier = Modifier,
+    firstKeyFocus: FocusRequester? = null,
 ) {
-    val rows = listOf(
-        "1234567890",
-        "QWERTYUIOP",
-        "ASDFGHJKL",
-        "ZXCVBNM",
-    )
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(5.dp),
     ) {
-        rows.forEach { row ->
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                row.forEach { ch ->
+        KEY_ROWS.forEachIndexed { rowIndex, row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                row.forEachIndexed { colIndex, ch ->
+                    val base = Modifier.weight(1f)
                     KeyButton(
                         label = ch.toString(),
                         onClick = { onChar(ch) },
-                        width = 48,
+                        modifier = if (rowIndex == 0 && colIndex == 0 && firstKeyFocus != null) {
+                            base.focusRequester(firstKeyFocus)
+                        } else {
+                            base
+                        },
                     )
                 }
             }
         }
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            KeyButton(label = "ESPACIO", onClick = onSpace, width = 160)
-            KeyButton(label = "BORRAR", onClick = onBackspace, width = 110)
-            KeyButton(label = "LIMPIAR", onClick = onClear, width = 110)
-            KeyButton(label = "BUSCAR", onClick = onSearch, width = 130, accent = true)
+        Spacer(Modifier.height(2.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            KeyButton(label = "Espacio", onClick = onSpace, modifier = Modifier.weight(1.5f))
+            KeyButton(label = "Borrar", onClick = onBackspace, modifier = Modifier.weight(1.2f))
+            KeyButton(label = "Vaciar", onClick = onClear, modifier = Modifier.weight(1.2f))
+            KeyButton(
+                label = "Buscar",
+                onClick = onSearch,
+                modifier = Modifier.weight(1.3f),
+                accent = true,
+            )
         }
     }
 }
@@ -81,19 +94,17 @@ fun TvOnScreenKeyboard(
 private fun KeyButton(
     label: String,
     onClick: () -> Unit,
-    width: Int,
+    modifier: Modifier = Modifier,
     accent: Boolean = false,
 ) {
     Surface(
         onClick = onClick,
-        modifier = Modifier
-            .width(width.dp)
-            .height(44.dp),
+        modifier = modifier.height(42.dp),
         shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(8.dp)),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.08f),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.1f),
         colors = ClickableSurfaceDefaults.colors(
             containerColor = if (accent) ZakraAccent else ZakraSurface2,
-            focusedContainerColor = if (accent) ZakraAccent.copy(alpha = 0.9f) else ZakraFocus.copy(alpha = 0.18f),
+            focusedContainerColor = if (accent) ZakraAccent.copy(alpha = 0.88f) else ZakraFocus.copy(alpha = 0.22f),
         ),
         border = ClickableSurfaceDefaults.border(
             focusedBorder = Border(
@@ -105,13 +116,13 @@ private fun KeyButton(
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
-                .width(width.dp)
-                .height(44.dp)
-                .padding(horizontal = 4.dp),
+                .fillMaxWidth()
+                .height(42.dp)
+                .padding(horizontal = 2.dp),
         ) {
             Text(
                 text = label,
-                style = ZakraType.caption,
+                style = ZakraType.caption.copy(fontSize = 17.sp),
                 color = ZakraText,
                 textAlign = TextAlign.Center,
                 maxLines = 1,

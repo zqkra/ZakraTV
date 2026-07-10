@@ -1,11 +1,6 @@
 package com.zakratv.app.ui.screens
 
-import android.content.Context
 import android.content.Intent
-import android.text.InputType
-import android.view.inputmethod.EditorInfo
-import android.view.inputmethod.InputMethodManager
-import android.widget.EditText
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -45,8 +40,6 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.widget.doAfterTextChanged
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -78,6 +71,7 @@ import com.zakratv.app.ui.components.PosterCard
 import com.zakratv.app.ui.components.SideNavItem
 import com.zakratv.app.ui.components.SplashLoading
 import com.zakratv.app.ui.components.StepLabel
+import com.zakratv.app.ui.components.TvKeyboard
 import com.zakratv.app.ui.components.ZakraLogoMark
 import com.zakratv.app.ui.components.ZakraSpinner
 import com.zakratv.app.ui.navigation.AppDestination
@@ -99,7 +93,7 @@ import kotlinx.coroutines.withContext
 private class SearchUiState {
     var query by mutableStateOf("")
     var items by mutableStateOf<List<MediaItem>>(emptyList())
-    var status by mutableStateOf("Escribe el título y pulsa Buscar")
+    var status by mutableStateOf("Escribe con el teclado en pantalla")
 }
 
 @OptIn(ExperimentalTvMaterial3Api::class)
@@ -494,10 +488,10 @@ private fun MyListScreen(
 }
 
 /**
- * Búsqueda con campo NATIVO (EditText): en Fire TV / Android TV el teclado del
- * sistema se abre de verdad al enfocar/pulsar el campo — el TextField de Compose
- * no lo hacía con el mando. Al buscar, el foco pasa al primer resultado; y al
- * volver de un título, la búsqueda y sus resultados siguen aquí.
+ * Búsqueda con TECLADO PROPIO en pantalla (cuadrícula A–Z optimizada para el mando,
+ * estilo apps de TV reales). Cero dependencia del teclado del sistema — no puede
+ * fallar en abrir. Busca AUTOMÁTICO mientras escribes (desde 3 letras) y muestra
+ * los resultados a la derecha. Query y resultados persisten al volver de un título.
  */
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -508,170 +502,155 @@ private fun SearchScreen(
 ) {
     var loading by remember { mutableStateOf(false) }
     var focusResults by remember { mutableStateOf(false) }
+    var lastSearched by remember {
+        mutableStateOf(if (state.items.isNotEmpty()) state.query.trim() else "")
+    }
     val scope = rememberCoroutineScope()
+    val firstKeyFocus = remember { FocusRequester() }
     val firstResultFocus = remember { FocusRequester() }
-    val editRef = remember { mutableStateOf<EditText?>(null) }
 
-    fun imm(): InputMethodManager? = editRef.value?.context
-        ?.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
-
-    fun openKeyboard() {
-        val et = editRef.value ?: return
-        et.requestFocus()
-        imm()?.showSoftInput(et, InputMethodManager.SHOW_IMPLICIT)
+    suspend fun doSearch(q: String) {
+        loading = true
+        state.status = "Buscando «$q»…"
+        state.items = repo.search(q)
+        loading = false
+        state.status = if (state.items.isEmpty()) {
+            "Sin resultados para «$q»"
+        } else {
+            "${state.items.size} resultados · mando a la derecha →"
+        }
     }
 
-    fun hideKeyboard() {
-        val et = editRef.value ?: return
-        imm()?.hideSoftInputFromWindow(et.windowToken, 0)
-        et.clearFocus()
-    }
-
-    fun runSearch() {
+    fun searchNow() {
         val q = state.query.trim()
         if (q.length < 2) {
             state.status = "Escribe al menos 2 letras"
             return
         }
         scope.launch {
-            loading = true
-            state.status = "Buscando «$q»…"
-            hideKeyboard()
-            state.items = repo.search(q)
-            loading = false
-            state.status = if (state.items.isEmpty()) {
-                "Sin resultados para «$q». Revisa la ortografía."
-            } else {
-                "${state.items.size} resultados · elige con el mando"
-            }
+            lastSearched = q
+            doSearch(q)
             if (state.items.isNotEmpty()) focusResults = true
         }
     }
 
-    // Al entrar sin resultados previos: cursor al campo y teclado del TV abierto.
+    // Busca solo mientras escribes: 600 ms después de la última tecla (desde 3 letras).
+    LaunchedEffect(state.query) {
+        val q = state.query.trim()
+        if (q.length < 3 || q == lastSearched) return@LaunchedEffect
+        delay(600)
+        lastSearched = q
+        doSearch(q)
+    }
+
+    // Al entrar sin resultados: el cursor cae en la primera tecla del teclado.
     LaunchedEffect(Unit) {
         if (state.items.isEmpty()) {
-            delay(400)
-            runCatching { openKeyboard() }
+            delay(250)
+            runCatching { firstKeyFocus.requestFocus() }
         }
     }
 
-    // Tras una búsqueda con resultados, mueve el cursor al primer resultado.
+    // El botón Buscar salta al primer resultado.
     LaunchedEffect(focusResults) {
         if (focusResults) {
-            delay(180)
+            delay(150)
             runCatching { firstResultFocus.requestFocus() }
             focusResults = false
         }
     }
 
-    Column(
+    Row(
         Modifier
             .fillMaxSize()
-            .padding(24.dp),
+            .padding(horizontal = 24.dp, vertical = 18.dp),
+        horizontalArrangement = Arrangement.spacedBy(22.dp),
     ) {
-        Text("Buscar", style = ZakraType.title, color = ZakraText)
-        Spacer(Modifier.height(12.dp))
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
+        // —— Izquierda: consulta + teclado propio ——
+        Column(Modifier.width(312.dp)) {
+            Text("Buscar", style = ZakraType.section, color = ZakraText)
+            Spacer(Modifier.height(8.dp))
             Box(
                 Modifier
-                    .weight(1f)
-                    .height(56.dp)
-                    .background(ZakraSurface2, RoundedCornerShape(12.dp))
-                    .padding(horizontal = 18.dp),
+                    .fillMaxWidth()
+                    .height(50.dp)
+                    .background(ZakraSurface2, RoundedCornerShape(10.dp))
+                    .padding(horizontal = 14.dp),
                 contentAlignment = Alignment.CenterStart,
             ) {
-                AndroidView(
-                    factory = { ctx ->
-                        EditText(ctx).apply {
-                            hint = "Título de película o serie…"
-                            setHintTextColor(0xFFB3B3C0.toInt())
-                            setTextColor(0xFFF5F5F7.toInt())
-                            textSize = 20f
-                            isSingleLine = true
-                            inputType = InputType.TYPE_CLASS_TEXT
-                            imeOptions = EditorInfo.IME_ACTION_SEARCH
-                            setBackgroundColor(android.graphics.Color.TRANSPARENT)
-                            setText(state.query)
-                            setSelection(state.query.length)
-                            doAfterTextChanged { state.query = it?.toString().orEmpty() }
-                            setOnEditorActionListener { _, actionId, _ ->
-                                if (actionId == EditorInfo.IME_ACTION_SEARCH ||
-                                    actionId == EditorInfo.IME_ACTION_DONE
-                                ) {
-                                    runSearch()
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                            editRef.value = this
-                        }
-                    },
-                    update = { et ->
-                        if (et.text.toString() != state.query) {
-                            et.setText(state.query)
-                            et.setSelection(state.query.length)
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                if (state.query.isEmpty()) {
+                    Text(
+                        "Título de película o serie",
+                        style = ZakraType.body,
+                        color = ZakraMuted,
+                        maxLines = 1,
+                    )
+                } else {
+                    Text(
+                        state.query,
+                        style = ZakraType.body,
+                        color = ZakraText,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
-            BigButton(
-                label = "Buscar",
-                accent = true,
-                onClick = { runSearch() },
-            )
-            BigButton(
-                label = "Teclado",
-                onClick = { openKeyboard() },
+            Spacer(Modifier.height(6.dp))
+            Text(state.status, style = ZakraType.caption, color = ZakraMuted, maxLines = 2)
+            Spacer(Modifier.height(10.dp))
+            TvKeyboard(
+                onChar = { state.query += it },
+                onSpace = {
+                    if (state.query.isNotEmpty() && !state.query.endsWith(' ')) state.query += ' '
+                },
+                onBackspace = { state.query = state.query.dropLast(1) },
+                onClear = {
+                    state.query = ""
+                    state.items = emptyList()
+                    lastSearched = ""
+                    state.status = "Escribe con el teclado en pantalla"
+                },
+                onSearch = { searchNow() },
+                firstKeyFocus = firstKeyFocus,
             )
         }
-        Spacer(Modifier.height(8.dp))
-        Text(state.status, style = ZakraType.caption, color = ZakraMuted, maxLines = 1)
-        Spacer(Modifier.height(12.dp))
-        when {
-            loading -> LoadingBox(
-                Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                message = "Buscando…",
-            )
-            state.items.isEmpty() -> Box(
-                Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    "Escribe un título y pulsa Buscar.\nLos resultados aparecen aquí.",
-                    style = ZakraType.bodyMuted,
-                    color = ZakraMuted,
-                    textAlign = TextAlign.Center,
-                )
-            }
-            else -> LazyVerticalGrid(
-                columns = GridCells.Fixed(5),
-                contentPadding = PaddingValues(4.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-            ) {
-                itemsIndexed(
-                    state.items,
-                    key = { _, it -> "${it.mediaType}-${it.id}" },
-                ) { i, item ->
-                    PosterCard(
-                        item = item,
-                        onClick = { onClick(item) },
-                        width = 140,
-                        modifier = if (i == 0) Modifier.focusRequester(firstResultFocus) else Modifier,
+        // —— Derecha: resultados en vivo ——
+        Box(
+            Modifier
+                .weight(1f)
+                .fillMaxHeight(),
+        ) {
+            when {
+                loading -> LoadingBox(Modifier.fillMaxSize(), message = "Buscando…")
+                state.items.isEmpty() -> Box(
+                    Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        "Escribe un título con el teclado.\nLos resultados aparecen aquí solos.",
+                        style = ZakraType.bodyMuted,
+                        color = ZakraMuted,
+                        textAlign = TextAlign.Center,
                     )
+                }
+                else -> LazyVerticalGrid(
+                    columns = GridCells.Adaptive(112.dp),
+                    contentPadding = PaddingValues(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    itemsIndexed(
+                        state.items,
+                        key = { _, it -> "${it.mediaType}-${it.id}" },
+                    ) { i, item ->
+                        PosterCard(
+                            item = item,
+                            onClick = { onClick(item) },
+                            width = 112,
+                            modifier = if (i == 0) Modifier.focusRequester(firstResultFocus) else Modifier,
+                        )
+                    }
                 }
             }
         }
