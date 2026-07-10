@@ -3,6 +3,7 @@ package com.zakratv.app.player
 import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Bundle
+import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.KeyEvent
@@ -113,6 +114,7 @@ class PlayerActivity : ComponentActivity() {
 
     private fun initPlayer(url: String, title: String) {
       try {
+        Log.i(TAG, "initPlayer len=${url.length} title=$title")
         val httpFactory = OkHttpDataSource.Factory(HttpClientFactory.mediaClient)
             .setUserAgent("ZakraTV/1.5 (Android TV; ExoPlayer)")
 
@@ -171,6 +173,7 @@ class PlayerActivity : ComponentActivity() {
                 exo.prepare()
                 exo.addListener(object : Player.Listener {
                     override fun onPlaybackStateChanged(playbackState: Int) {
+                        Log.i(TAG, "state=$playbackState (1=IDLE 2=BUFFERING 3=READY 4=ENDED)")
                         when (playbackState) {
                             Player.STATE_READY -> {
                                 hideError()
@@ -204,6 +207,7 @@ class PlayerActivity : ComponentActivity() {
                     }
 
                     override fun onPlayerError(error: PlaybackException) {
+                        Log.w(TAG, "playerError code=${error.errorCode} ${error.errorCodeName}", error)
                         val msg = when (error.errorCode) {
                             PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
                             PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT,
@@ -229,11 +233,13 @@ class PlayerActivity : ComponentActivity() {
                     }
 
                     override fun onIsPlayingChanged(isPlaying: Boolean) {
+                        Log.i(TAG, "isPlaying=$isPlaying")
                         if (isPlaying) hideError()
                     }
                 })
             }
       } catch (t: Throwable) {
+          Log.e(TAG, "initPlayer failed", t)
           showError("No se pudo iniciar el vídeo.\n(${t.javaClass.simpleName}: ${t.message})\nVuelve atrás y prueba otro enlace (⚡ RD).")
       }
     }
@@ -350,6 +356,7 @@ class PlayerActivity : ComponentActivity() {
     }
 
     companion object {
+        private const val TAG = "ZakraPlayer"
         const val EXTRA_URL = "url"
         const val EXTRA_TITLE = "title"
         const val EXTRA_QUALITY = "quality"
