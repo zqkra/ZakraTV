@@ -143,10 +143,12 @@ class PlayerActivity : ComponentActivity() {
                 .build()
         }
 
+        // Most compatible config for Fire TV / Android TV: platform MediaCodec decoders
+        // (no extension libs are bundled) + decoder fallback so a failing primary decoder
+        // retries on another instead of erroring the whole playback.
         val renderersFactory = DefaultRenderersFactory(this)
-            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
+            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF)
             .setEnableDecoderFallback(true)
-            .setEnableAudioFloatOutput(false)
 
         player = ExoPlayer.Builder(this, renderersFactory)
             .setTrackSelector(trackSelector)
