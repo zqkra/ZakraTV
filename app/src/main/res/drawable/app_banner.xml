@@ -1,16 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item>
-        <shape android:shape="rectangle">
-            <solid android:color="#0B0B0F" />
-            <size
-                android:width="320dp"
-                android:height="180dp" />
-        </shape>
-    </item>
-    <item
-        android:width="88dp"
-        android:height="88dp"
-        android:gravity="center"
-        android:drawable="@drawable/ic_launcher_foreground" />
-</layer-list>
+<!-- Android TV home banner (320x180): red gradient with the white Z mark. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="320dp"
+    android:height="180dp"
+    android:viewportWidth="320"
+    android:viewportHeight="180">
+    <path android:pathData="M0,0h320v180h-320z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="0"
+                android:startY="0"
+                android:endX="300"
+                android:endY="180">
+                <item android:offset="0" android:color="#FFF11722" />
+                <item android:offset="0.55" android:color="#FFCC0812" />
+                <item android:offset="1" android:color="#FF6E040D" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <!-- subtle shadow -->
+    <path
+        android:fillColor="#2B000000"
+        android:pathData="M131,61 L191,61 L191,76 L155,106 L191,106 L191,121 L131,121 L131,106 L167,76 L131,76 Z" />
+    <!-- white Z -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M130,60 L190,60 L190,75 L154,105 L190,105 L190,120 L130,120 L130,105 L166,75 L130,75 Z" />
+</vector>

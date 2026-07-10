@@ -1,20 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Professional red Z mark for Zakra TV -->
+<!-- Clean bold white Z, centered in the adaptive safe zone. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Dark plate -->
+    <!-- soft shadow under the mark -->
     <path
-        android:fillColor="#0B0B0F"
-        android:pathData="M0,0h108v108h-108z" />
-    <!-- Soft red rounded square -->
+        android:fillColor="#33000000"
+        android:pathData="M35,36 L75,36 L75,46 L51,66 L75,66 L75,76 L35,76 L35,66 L59,46 L35,46 Z" />
+    <!-- the Z -->
     <path
-        android:fillColor="#E50914"
-        android:pathData="M26,26h56c6.6,0 12,5.4 12,12v56c0,6.6 -5.4,12 -12,12h-56c-6.6,0 -12,-5.4 -12,-12v-56c0,-6.6 5.4,-12 12,-12z" />
-    <!-- Letter Z (geometric, bold) -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M38,38 h40 v9 H52 l26,32 v9 H38 v-9 h26 L38,47 z" />
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M34,34 L74,34 L74,44 L50,64 L74,64 L74,74 L34,74 L34,64 L58,44 L34,44 Z" />
 </vector>

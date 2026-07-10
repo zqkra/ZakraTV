@@ -626,6 +626,9 @@ private fun DetailScreen(
     var seasonNum by remember { mutableIntStateOf(1) }
     var status by remember { mutableStateOf("") }
     var showPicker by remember { mutableStateOf(false) }
+    // Moves the D-PAD cursor INTO the detail (Play / first season) when a title opens,
+    // instead of leaving it stuck on the side menu.
+    val primaryFocus = remember { FocusRequester() }
 
     LaunchedEffect(item.id, item.mediaType) {
         // Guarded: nothing here may crash the app while opening a title.
@@ -642,6 +645,21 @@ private fun DetailScreen(
                     episodes = repo.episodes(detailed.id, seasonNum)
                 }
             }
+        }
+    }
+
+    // Movie: focus the Play button as soon as the detail is shown.
+    LaunchedEffect(detailed.id, detailed.mediaType) {
+        if (detailed.mediaType == MediaType.MOVIE) {
+            delay(160)
+            runCatching { primaryFocus.requestFocus() }
+        }
+    }
+    // Series: focus the first season once the seasons have loaded.
+    LaunchedEffect(detailed.mediaType, seasons.isNotEmpty()) {
+        if (detailed.mediaType == MediaType.SERIES && seasons.isNotEmpty()) {
+            delay(160)
+            runCatching { primaryFocus.requestFocus() }
         }
     }
 
@@ -740,7 +758,9 @@ private fun DetailScreen(
                         label = "▶ Reproducir ahora",
                         accent = true,
                         onClick = { loadStreams() },
-                        modifier = Modifier.widthIn(min = 280.dp),
+                        modifier = Modifier
+                            .widthIn(min = 280.dp)
+                            .focusRequester(primaryFocus),
                     )
                 }
             }
@@ -762,6 +782,7 @@ private fun DetailScreen(
                                         episodes = repo.episodes(detailed.id, seasonNum)
                                     }
                                 },
+                                modifier = if (i == 0) Modifier.focusRequester(primaryFocus) else Modifier,
                             )
                         }
                     }

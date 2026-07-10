@@ -9,6 +9,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -36,9 +37,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
@@ -228,6 +233,7 @@ fun FilterChip(
     }
 }
 
+/** Clean circular loader: a faint full ring plus a rotating accent arc. */
 @Composable
 fun ZakraSpinner(modifier: Modifier = Modifier, size: Int = 48) {
     val transition = rememberInfiniteTransition(label = "spin")
@@ -235,25 +241,43 @@ fun ZakraSpinner(modifier: Modifier = Modifier, size: Int = 48) {
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
-            animation = tween(900, easing = LinearEasing),
+            animation = tween(750, easing = LinearEasing),
             repeatMode = RepeatMode.Restart,
         ),
         label = "angle",
     )
-    Box(
+    val strokeDp = (size / 9f).coerceIn(3f, 7f)
+    Canvas(
         modifier = modifier
             .size(size.dp)
-            .rotate(angle)
-            .clip(CircleShape)
-            .background(
-                Brush.sweepGradient(
-                    listOf(ZakraAccent, ZakraAccent.copy(alpha = 0.15f), ZakraAccent),
-                ),
-            )
-            .padding(5.dp)
-            .clip(CircleShape)
-            .background(ZakraBg),
-    )
+            .rotate(angle),
+    ) {
+        val stroke = strokeDp.dp.toPx()
+        val d = this.size.minDimension - stroke
+        val topLeft = Offset(
+            (this.size.width - d) / 2f,
+            (this.size.height - d) / 2f,
+        )
+        val arcSize = Size(d, d)
+        drawArc(
+            color = ZakraAccent.copy(alpha = 0.18f),
+            startAngle = 0f,
+            sweepAngle = 360f,
+            useCenter = false,
+            topLeft = topLeft,
+            size = arcSize,
+            style = Stroke(width = stroke, cap = StrokeCap.Round),
+        )
+        drawArc(
+            color = ZakraAccent,
+            startAngle = 0f,
+            sweepAngle = 250f,
+            useCenter = false,
+            topLeft = topLeft,
+            size = arcSize,
+            style = Stroke(width = stroke, cap = StrokeCap.Round),
+        )
+    }
 }
 
 @Composable
@@ -356,8 +380,8 @@ fun SideNavItem(
     label: String,
     selected: Boolean,
     onClick: () -> Unit,
+    icon: NavIcon,
     modifier: Modifier = Modifier,
-    icon: NavIcon = NavIcon.None,
 ) {
     Surface(
         onClick = onClick,
@@ -384,46 +408,45 @@ fun SideNavItem(
                 .height(48.dp)
                 .padding(horizontal = 14.dp),
         ) {
-            if (selected) {
-                Box(
-                    Modifier
-                        .size(width = 4.dp, height = 20.dp)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(ZakraAccent),
-                )
-                Spacer(Modifier.width(10.dp))
-            }
-            when (icon) {
-                NavIcon.Search -> {
-                    Image(
-                        painter = painterResource(R.drawable.ic_search),
-                        contentDescription = "Buscar",
-                        modifier = Modifier.size(26.dp),
-                        colorFilter = ColorFilter.tint(
-                            if (selected) ZakraText else ZakraMuted,
-                        ),
-                    )
-                    if (label.isNotBlank()) {
-                        Spacer(Modifier.width(10.dp))
-                        Text(
-                            text = label,
-                            style = ZakraType.body,
-                            color = if (selected) ZakraText else ZakraMuted,
-                            maxLines = 1,
-                        )
-                    }
-                }
-                NavIcon.None -> {
-                    Text(
-                        text = label,
-                        style = ZakraType.body,
-                        color = if (selected) ZakraText else ZakraMuted,
-                        maxLines = 1,
+            Box(
+                Modifier.size(width = 4.dp, height = 22.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (selected) {
+                    Box(
+                        Modifier
+                            .size(width = 4.dp, height = 22.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(ZakraAccent),
                     )
                 }
             }
+            Spacer(Modifier.width(12.dp))
+            Image(
+                painter = painterResource(navIconRes(icon)),
+                contentDescription = label,
+                modifier = Modifier.size(24.dp),
+                colorFilter = ColorFilter.tint(if (selected) ZakraText else ZakraMuted),
+            )
+            Spacer(Modifier.width(14.dp))
+            Text(
+                text = label,
+                style = ZakraType.body,
+                color = if (selected) ZakraText else ZakraMuted,
+                maxLines = 1,
+            )
         }
     }
+}
+
+private fun navIconRes(icon: NavIcon): Int = when (icon) {
+    NavIcon.Home -> R.drawable.ic_home
+    NavIcon.Search -> R.drawable.ic_search
+    NavIcon.Movies -> R.drawable.ic_movie
+    NavIcon.Series -> R.drawable.ic_series
+    NavIcon.Trending -> R.drawable.ic_trending
+    NavIcon.MyList -> R.drawable.ic_list
+    NavIcon.Settings -> R.drawable.ic_settings
 }
 
 @Composable
